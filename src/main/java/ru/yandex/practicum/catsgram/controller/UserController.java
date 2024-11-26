@@ -1,10 +1,13 @@
 package ru.yandex.practicum.catsgram.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
 import ru.yandex.practicum.catsgram.exception.DuplicatedDataException;
 import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.model.Post;
 import ru.yandex.practicum.catsgram.model.User;
+import ru.yandex.practicum.catsgram.service.UserService;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -14,67 +17,34 @@ import java.util.Map;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+    private final UserService userService;
+
     private final Map<Long, User> users = new HashMap<>();
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     @GetMapping
     public Collection<User> findAll() {
-        return users.values();
+        return userService.findAll();
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public User create(@RequestBody User user) {
-        // проверяем выполнение необходимых условий
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
-            throw new ConditionsNotMetException("Имейл должен быть указан");
-        }
-        users.values()
-                .stream()
-                .filter(u -> u.getEmail().equals(user.getEmail()))
-                .forEach(u -> {
-                    throw new DuplicatedDataException("Этот имейл уже используется");
-                });
-        // формируем дополнительные данные
-        user.setId(getNextId());
-        user.setRegistrationDate(Instant.now());
-        // сохраняем нового пользователя в памяти приложения
-        users.put(user.getId(), user);
-        return user;
-    }
-
-    private long getNextId() {
-        long currentMaxId = users.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
+        return userService.create(user);
     }
 
     @PutMapping
     public User update(@RequestBody User newUser) {
-        // проверяем необходимые условия
-        if (newUser.getId() == null) {
-            throw new ConditionsNotMetException("Id должен быть указан");
-        }
-        if (users.containsKey(newUser.getId())) {
-            if (newUser.getEmail() == null || newUser.getUsername() == null || newUser.getPassword() == null) {
-                throw new ConditionsNotMetException("Email, имя пользователя и пароль должны быть указаны");
-            }
-            users.values()
-                    .stream()
-                    .filter(u -> u.getEmail().equals(newUser.getEmail()))
-                    .forEach(u -> {
-                        throw new DuplicatedDataException("Этот имейл уже используется");
-                    });
-            // если пользователь найден и все условия соблюдены, обновляем её содержимое
-            User user = users.get(newUser.getId());
-            user.setUsername(newUser.getUsername());
-            user.setEmail(newUser.getEmail());
-            user.setPassword(newUser.getPassword());
+        return userService.update(newUser);
+    }
 
-            return user;
-        }
-        throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
+    @GetMapping("/{userId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public User findById(@PathVariable("userId") long id) {
+        return userService.findById(id);
     }
 
 }
